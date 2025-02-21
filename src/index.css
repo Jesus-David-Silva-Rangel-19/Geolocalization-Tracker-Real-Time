@@ -23,6 +23,21 @@
   }
 }
 
+/* Replace -ms-high-contrast with modern forced-colors media query */
+@media (forced-colors: active) {
+  .marker {
+    forced-color-adjust: none;
+  }
+  
+  .mapboxgl-ctrl-logo {
+    forced-color-adjust: none;
+  }
+  
+  .mapboxgl-popup-content {
+    forced-color-adjust: none;
+  }
+}
+
 .mapboxgl-ctrl-logo {
   display: none !important;
 }
