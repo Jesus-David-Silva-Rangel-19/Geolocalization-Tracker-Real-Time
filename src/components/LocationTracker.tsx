@@ -19,90 +19,121 @@ const LocationTracker = () => {
   const [routeInfo, setRouteInfo] = useState<string>('');
 
   useEffect(() => {
-    // Initialize map
-    if (!mapContainer.current) return;
+    console.log('Initializing map...');
+    if (!mapContainer.current) {
+      console.error('Map container not found');
+      return;
+    }
 
-    mapboxgl.accessToken = 'pk.eyJ1IjoidGVzdHVzZXIiLCJhIjoiY2thbXBib3BmMDBtYTJ4bngwMTIwanM4byJ9.YZ8Q-1qpk4R-H4S6uTG1Pg';
-    
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      zoom: 15,
-      pitch: 45,
-    });
+    try {
+      // Initialize map with a more flexible access token
+      mapboxgl.accessToken = 'pk.eyJ1IjoidGVzdHVzZXIiLCJhIjoiY2thbXBib3BmMDBtYTJ4bngwMTIwanM4byJ9.YZ8Q-1qpk4R-H4S6uTG1Pg';
+      
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        zoom: 15,
+        center: [0, 0], // Set an initial center
+        pitch: 45,
+      });
 
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      map.current.on('load', () => {
+        console.log('Map loaded successfully');
+      });
 
-    // Get current location
-    if (navigator.geolocation) {
-      navigator.geolocation.watchPosition(
-        async position => {
-          const newLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
+      map.current.on('error', (e) => {
+        console.error('Map error:', e);
+        setError('Error al cargar el mapa. Por favor, recargue la página.');
+        setLoading(false);
+      });
 
-          // Update location state
-          setLocation(newLocation);
+      // Add navigation controls
+      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-          // Update map center
-          map.current?.flyTo({
-            center: [newLocation.lng, newLocation.lat],
-            essential: true
-          });
+      // Get current location
+      if (navigator.geolocation) {
+        console.log('Requesting geolocation...');
+        navigator.geolocation.watchPosition(
+          async position => {
+            console.log('Position received:', position);
+            const newLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
 
-          // Update or create marker
-          if (!marker.current) {
-            const el = document.createElement('div');
-            el.className = 'marker';
-            el.innerHTML = `
-              <div class="w-4 h-4 bg-accent rounded-full animate-pulse-dot shadow-lg"></div>
-              <div class="w-8 h-8 bg-accent/30 rounded-full absolute -inset-2"></div>
-            `;
-            
-            marker.current = new mapboxgl.Marker(el)
-              .setLngLat([newLocation.lng, newLocation.lat])
-              .addTo(map.current);
-          } else {
-            marker.current.setLngLat([newLocation.lng, newLocation.lat]);
-          }
+            console.log('New location:', newLocation);
 
-          // Get address
-          try {
-            const response = await fetch(
-              `https://api.mapbox.com/geocoding/v5/mapbox.places/${newLocation.lng},${newLocation.lat}.json?access_token=${mapboxgl.accessToken}`
-            );
-            const data = await response.json();
-            if (data.features && data.features[0]) {
-              setLocation(prev => ({
-                ...prev!,
-                address: data.features[0].place_name
-              }));
+            // Update location state
+            setLocation(newLocation);
+
+            // Update map center
+            if (map.current) {
+              map.current.flyTo({
+                center: [newLocation.lng, newLocation.lat],
+                essential: true
+              });
+
+              // Update or create marker
+              if (!marker.current) {
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.innerHTML = `
+                  <div class="w-4 h-4 bg-accent rounded-full animate-pulse-dot shadow-lg"></div>
+                  <div class="w-8 h-8 bg-accent/30 rounded-full absolute -inset-2"></div>
+                `;
+                
+                marker.current = new mapboxgl.Marker(el)
+                  .setLngLat([newLocation.lng, newLocation.lat])
+                  .addTo(map.current);
+              } else {
+                marker.current.setLngLat([newLocation.lng, newLocation.lat]);
+              }
+
+              // Get address
+              try {
+                const response = await fetch(
+                  `https://api.mapbox.com/geocoding/v5/mapbox.places/${newLocation.lng},${newLocation.lat}.json?access_token=${mapboxgl.accessToken}`
+                );
+                const data = await response.json();
+                if (data.features && data.features[0]) {
+                  setLocation(prev => ({
+                    ...prev!,
+                    address: data.features[0].place_name
+                  }));
+                }
+              } catch (error) {
+                console.error('Error fetching address:', error);
+              }
             }
-          } catch (error) {
-            console.error('Error fetching address:', error);
-          }
 
-          setLoading(false);
-        },
-        error => {
-          setError('Error al obtener la ubicación. Por favor, active los servicios de localización.');
-          setLoading(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      );
-    } else {
-      setError('La geolocalización no está soportada en este navegador.');
+            setLoading(false);
+          },
+          error => {
+            console.error('Geolocation error:', error);
+            setError('Error al obtener la ubicación. Por favor, active los servicios de localización.');
+            setLoading(false);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          }
+        );
+      } else {
+        console.error('Geolocation not supported');
+        setError('La geolocalización no está soportada en este navegador.');
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Error initializing map:', err);
+      setError('Error al inicializar el mapa.');
       setLoading(false);
     }
 
     return () => {
-      map.current?.remove();
+      if (map.current) {
+        map.current.remove();
+      }
     };
   }, []);
 
