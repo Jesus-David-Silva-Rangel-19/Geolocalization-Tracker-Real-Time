@@ -38,7 +38,6 @@ const LocationTracker = () => {
     if (navigator.geolocation) {
       navigator.geolocation.watchPosition(
         async position => {
-          const { latitude, lng } = position.coords;
           const newLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
